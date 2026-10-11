@@ -1,0 +1,13 @@
+{
+  "name": "prompt-enhancer",
+  "owner": {
+    "name": "Thinh Khuat"
+  },
+  "description": "Rewrites a rough Claude Code prompt in place, naming fitting skills, open decisions and the finished result.",
+  "plugins": [
+    {
+      "name": "prompt-enhancer",
+      "source": "./"
+    }
+  ]
+}
