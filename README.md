@@ -94,12 +94,12 @@ claude plugin install prompt-enhancer@prompt-enhancer --scope user
 
 ```
   ❯ prompt-enhancer@prompt-enhancer
-    Version: 0.1.0
+    Version: 0.1.1
     Scope: user
     Status: ✔ enabled
 ```
 
-Claude Code runs a copy of the repository made at install time. To pick up commits pushed later, run these commands, then restart Claude Code:
+Claude Code runs a copy of the repository made at install time. To pick up a newer version pushed later, run these commands, then restart Claude Code:
 
 ```sh
 claude plugin marketplace update prompt-enhancer
@@ -188,9 +188,10 @@ A clean run prints `tsc: 0 errors`. The block calls `command ls` so that a shell
 
 The installed copy comes from GitHub, so an edit in this folder reaches your sessions only after you push it:
 
-1. Commit and push the change to `thinhkhuat/prompt-enhancer`.
-2. Run the two update commands in [Install and uninstall](#install-and-uninstall).
-3. Restart Claude Code.
+1. Raise `version` in `.claude-plugin/plugin.json`, for example from `0.1.1` to `0.1.2`. `claude plugin update` compares versions, not commits: a pushed commit with the same version stays at `already at the latest version`.
+2. Commit and push the change to `thinhkhuat/prompt-enhancer`.
+3. Run the two update commands in [Install and uninstall](#install-and-uninstall).
+4. Restart Claude Code.
 
 ## Known limits
 
