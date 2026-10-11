@@ -109,7 +109,7 @@ test('Enhance leaves the draft alone and says why when the model fails', async (
 
 test('The row tells a terminal user the keys, and only a terminal user', async ($, on) => {
   engine(on)
-  const HINT = /ctrl\+x tab · e enhance · s send/
+  const HINT = /ctrl\+x tab · e enhance · s send · esc back/
   const terminal = await mount($, 'terminal')
   expect(await terminal.find({ type: 'Text', text: HINT })).toBeDefined()
   await terminal.unmount()
@@ -144,18 +144,18 @@ test('The hint shows the chord the user bound to abovePrompt:focus', async ($, o
       { context: 'Chat', bindings: { 'cmd+e': 'abovePrompt:focus' } },
     ],
   })
-  expect(await hintAfterStart($)).toContain('cmd+e · e enhance · s send')
+  expect(await hintAfterStart($)).toContain('cmd+e · e enhance · s send · esc back')
 })
 
 test('The hint falls back to ctrl+x tab without a keybindings file', async ($, on) => {
   keybindings(on, null)
-  expect(await hintAfterStart($)).toContain('ctrl+x tab · e enhance · s send')
+  expect(await hintAfterStart($)).toContain('ctrl+x tab · e enhance · s send · esc back')
 })
 
 test('The hint drops the chord when the user unbound ctrl+x tab and bound nothing else', async ($, on) => {
   keybindings(on, { bindings: [{ context: 'Chat', bindings: { 'ctrl+x tab': null } }] })
   const hint = await hintAfterStart($)
-  expect(hint).toContain('e enhance · s send')
+  expect(hint).toContain('e enhance · s send · esc back')
   expect(hint).not.toContain('ctrl+x')
 })
 

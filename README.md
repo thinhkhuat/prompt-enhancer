@@ -9,7 +9,7 @@ A Claude Code mod that turns a rough prompt into a strong one, in place, before 
 The rewrite lands in the prompt box, where you can read it, edit it, and send it yourself.
 
 ```
-Prompt enhancer [ Enhance ] [ Send ]  ctrl+x tab · e enhance · s send
+Prompt enhancer [ Enhance ] [ Send ]  ctrl+x tab · e enhance · s send · esc back
 ────────────────────────────────────────────────────────────────────
 ❯ write a python script that summarizes my youtube watch history
 ```
@@ -19,13 +19,14 @@ Prompt enhancer [ Enhance ] [ Send ]  ctrl+x tab · e enhance · s send
 1. Type a draft in the prompt box.
 2. Press the focus chord that the row shows to move the focus to the row. The chord is `ctrl+x` `tab` unless you bind your own (see [Change the focus chord](#change-the-focus-chord)).
 3. Press `e` to rewrite the draft, or `s` to send it.
+4. Press `Esc` to go back to the prompt box without pressing a button.
 
 You can also click **Enhance** or **Send** with the mouse.
 
-- **Enhance** reads the draft, rewrites it, and replaces the draft with the rewrite (`hooks/register.tsx:77-101`). It never sends anything. While the rewrite runs, the row shows `Enhancing…` (`hooks/register.tsx:134-137`).
+- **Enhance** reads the draft, rewrites it, and replaces the draft with the rewrite (`hooks/register.tsx:77-101`). It never sends anything. While the rewrite runs, the row shows `Enhancing…` (`hooks/register.tsx:135-138`).
 - **Send** clears the box and submits the draft as a turn (`hooks/register.tsx:103-113`).
-- **The key hint** shows the focus chord, then `e enhance · s send`. It shows on the terminal only (`hooks/register.tsx:145`). On the desktop app and in VS Code, you click the buttons.
-- **The hotkeys** are `e` for Enhance and `s` for Send (`hooks/register.tsx:141`, `hooks/register.tsx:143`). They work while the row has the focus.
+- **The key hint** shows the focus chord, then `e enhance · s send · esc back` (`hooks/register.tsx:130`). `Esc` is Claude Code's built-in chord for leaving the row. The hint shows on the terminal only (`hooks/register.tsx:146`). On the desktop app and in VS Code, you click the buttons.
+- **The hotkeys** are `e` for Enhance and `s` for Send (`hooks/register.tsx:142`, `hooks/register.tsx:144`). They work while the row has the focus.
 - **An empty box** makes either button show a toast and do nothing else: "Type a prompt first" for Enhance, "Nothing to send" for Send (`hooks/register.tsx:80-83`, `hooks/register.tsx:105-108`).
 
 ## Change the focus chord
@@ -37,10 +38,13 @@ To add your own chord, add a `Chat` block to `~/.claude/keybindings.json`. On ma
 ```json
 {
   "bindings": [
-    { "context": "Chat", "bindings": { "cmd+e": "abovePrompt:focus" } }
+    { "context": "Chat", "bindings": { "cmd+e": "abovePrompt:focus" } },
+    { "context": "AbovePrompt", "bindings": { "cmd+e": "abovePrompt:leave" } }
   ]
 }
 ```
+
+The second block makes the same chord a toggle: inside the row, `cmd+e` returns to the prompt box. `Esc` returns too, with or without that block.
 
 If the file already has a `bindings` list, add the block to that list. On Linux and Windows, terminals rarely pass `cmd` keys through, so pick a chord that your terminal does send, such as `meta+e`. To turn off the built-in chord, map it to `null`: `"ctrl+x tab": null`.
 
@@ -48,7 +52,7 @@ The mod reads `keybindings.json` when a session starts and shows the chord in th
 
 - If you bound a chord to `abovePrompt:focus` in a `Chat` block, the row shows that chord (`hooks/register.tsx:42-57`).
 - If you did not, the row shows `ctrl+x tab`.
-- If you mapped `ctrl+x tab` to `null` or to another action, and bound no chord of your own, the row shows only `e enhance · s send`.
+- If you mapped `ctrl+x tab` to `null` or to another action, and bound no chord of your own, the row shows only `e enhance · s send · esc back`.
 
 The mod looks for the file in `$CLAUDE_CONFIG_DIR`, and in `~/.claude` when that variable is not set. If the file is missing or does not parse, the row shows `ctrl+x tab`. Start a new session after you edit the file, so that the row picks up the change.
 
@@ -94,7 +98,7 @@ claude plugin install prompt-enhancer@prompt-enhancer --scope user
 
 ```
   ❯ prompt-enhancer@prompt-enhancer
-    Version: 0.1.1
+    Version: 0.1.2
     Scope: user
     Status: ✔ enabled
 ```
@@ -125,6 +129,7 @@ claude plugin marketplace remove prompt-enhancer
 | `hooks/register.tsx` | The whole mod: a `session.start` hook that reads the focus chord, a `ui.render` hook on `AbovePrompt`, and the `enhance`, `send` and `rewrite` functions. |
 | `types/index.d.ts` | The state contract: `isBusy`, `note`, and `focusKey`, kept in `$.state` under `prompt-enhancer`. |
 | `tests/prompt-enhancer.test.ts` | Eight tests run by `claude plugin test`. |
+| `tsconfig.json` | Points `tsc` at the API types that Claude Code writes into `.claude-plugin/types/`. |
 
 ### Validate and test
 
@@ -157,38 +162,33 @@ The first four tests and the Send test run once on the `terminal` surface and on
 
 ### Type-check
 
-The mod has no `tsconfig.json` of its own. The engine's API types live in `claude-code.d.ts`. Claude Code writes that file to a temporary folder when the `plugin-authoring` skill loads, and the folder changes from one Claude Code process to the next. Find the file and write the `tsconfig.json` outside the mod each time.
+`tsconfig.json` extends `.claude-plugin/types/tsconfig.json`. Claude Code writes that folder, with this version's API types, each time it loads the mod from this folder. The folder is not in git.
 
-1. In a Claude Code session, type `/plugin-authoring` so that the current types file exists.
-2. In a shell, from this folder, run:
+1. To write the types, start Claude Code once with this folder as a plugin folder, then quit:
 
 ```sh
-V=$(claude --version | cut -d' ' -f1)
-DTS=$(command ls -t "${CLAUDE_CODE_TMPDIR:-$TMPDIR}"/claude-$(id -u)/bundled-skills/"$V"/*/plugin-authoring/types/claude-code.d.ts | head -1)
-MOD=$PWD
-TC=$(mktemp -d)
-cat > "$TC/tsconfig.json" <<EOF
-{
-  "compilerOptions": {
-    "target": "es2023", "lib": ["es2023"], "types": [],
-    "module": "esnext", "moduleResolution": "bundler",
-    "strict": true, "noUncheckedIndexedAccess": true,
-    "noEmit": true, "skipLibCheck": true,
-    "jsx": "react", "jsxFactory": "h", "jsxFragmentFactory": "Fragment"
-  },
-  "include": ["$DTS", "$MOD/hooks", "$MOD/types", "$MOD/tests"]
-}
-EOF
-npx -y -p typescript@5 tsc -p "$TC" && echo "tsc: 0 errors"
+claude --plugin-dir .
 ```
 
-A clean run prints `tsc: 0 errors`. The block calls `command ls` so that a shell alias for `ls`, such as `eza`, does not replace it. If `ls` finds no `claude-code.d.ts` file, step 1 did not run in this Claude Code version.
+2. Run:
+
+```sh
+npx -y -p typescript@5 tsc -p .
+```
+
+A clean run prints nothing and exits 0. A type error prints its file, line, and message, for example `hooks/register.tsx(159,7): error TS2322`.
 
 ### Ship an edit
 
+To try an edit before you ship it, start Claude Code with this folder as a plugin folder. The folder's copy then replaces the installed copy for that session only:
+
+```sh
+claude --plugin-dir .
+```
+
 The installed copy comes from GitHub, so an edit in this folder reaches your sessions only after you push it:
 
-1. Raise `version` in `.claude-plugin/plugin.json`, for example from `0.1.1` to `0.1.2`. `claude plugin update` compares versions, not commits: a pushed commit with the same version stays at `already at the latest version`.
+1. Raise `version` in `.claude-plugin/plugin.json`, for example from `0.1.2` to `0.1.3`. `claude plugin update` compares versions, not commits: a pushed commit with the same version stays at `already at the latest version`.
 2. Commit and push the change to `thinhkhuat/prompt-enhancer`.
 3. Run the two update commands in [Install and uninstall](#install-and-uninstall).
 4. Restart Claude Code.
@@ -198,7 +198,7 @@ The installed copy comes from GitHub, so an edit in this folder reaches your ses
 - **The transcript labels a sent prompt as coming from the plugin.** Send submits with `asUser: true` (`hooks/register.tsx:112`). The model reads the text as your own words, with no "plugin sent a message" frame. The transcript still shows `› Prompt from the prompt-enhancer plugin` above it, though, and Claude Code does not expand `@file` mentions in a prompt a plugin submits. The mod cannot change either behaviour. To send the prompt as an ordinary typed prompt, press Enter in the box instead of Send.
 - **The row hides while a turn runs.** The hook steps aside while `isWorking` or `hasSurvey` is true (`hooks/register.tsx:123`). The row comes back when the turn ends.
 - **A long draft can push the row off screen.** In live runs on a 50-row terminal, Claude Code stopped drawing the row once a 30-line rewrite filled the prompt box. The mod still returned the row. On a 150-row terminal, the same rewrite left the row visible. The focus chord and the hotkeys still reached the row while it was hidden.
-- **Enhance is not awaited, because a press has 10 seconds.** Claude Code gives each `ui.press` hook a 10-second budget (`HookBudget.ms` is `10_000` in `claude-code.d.ts`). A forked rewrite can take longer: one live run took 13.9 seconds and logged `ui.press prompt-enhancer: exceeded 10000ms budget`. So the button starts `enhance` and returns without waiting for it (`hooks/register.tsx:140-141`). The `isBusy` flag stops a second press from starting a second rewrite while the first one runs (`hooks/register.tsx:78`, `hooks/register.tsx:84`).
+- **Enhance is not awaited, because a press has 10 seconds.** Claude Code gives each `ui.press` hook a 10-second budget (`HookBudget.ms` is `10_000` in `claude-code.d.ts`). A forked rewrite can take longer: one live run took 13.9 seconds and logged `ui.press prompt-enhancer: exceeded 10000ms budget`. So the button starts `enhance` and returns without waiting for it (`hooks/register.tsx:141-142`). The `isBusy` flag stops a second press from starting a second rewrite while the first one runs (`hooks/register.tsx:78`, `hooks/register.tsx:84`).
 - **A rewrite can include your absolute project path.** The rules tell the model to fit the project, and the path is part of the context the model sees (`hooks/register.tsx:21`, `hooks/register.tsx:35`).
 - **The hint reads `keybindings.json` only when a session starts.** An edit to the file shows in the row from the next session on.
 - **A `cmd` chord works only where the terminal sends `cmd` keys.** tmux does not pass them through.

@@ -126,7 +126,8 @@ export const register: Register = on => {
     const busy = await read($, isBusy)
     const message = await read($, note)
     const chord = await read($, focusKey)
-    const hint = [chord, 'e enhance', 's send'].filter(Boolean).join(' · ')
+    // esc is Claude Code's built-in abovePrompt:leave chord: it returns focus to the prompt box.
+    const hint = [chord, 'e enhance', 's send', 'esc back'].filter(Boolean).join(' · ')
 
     return (
       <Box>
