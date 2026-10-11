@@ -4,6 +4,11 @@ import type { EngineInterface, Register } from 'claude-code'
 const isBusy = atom({ plugin: 'prompt-enhancer', key: 'isBusy' } as const, false)
 const note = atom({ plugin: 'prompt-enhancer', key: 'note' } as const, null)
 
+// Claude Code's own action for focusing plugin rows, and its built-in chord.
+const FOCUS_ACTION = 'abovePrompt:focus'
+const DEFAULT_FOCUS_KEY = 'ctrl+x tab'
+const focusKey = atom({ plugin: 'prompt-enhancer', key: 'focusKey' } as const, DEFAULT_FOCUS_KEY)
+
 const FALLBACK_MODEL = 'sonnet'
 
 const RULES = `Rewrite the rough prompt below into a strong prompt for a coding agent working in this project.
@@ -30,6 +35,25 @@ async function fallbackContext($: EngineInterface): Promise<string> {
     `Project folder: ${cwd}`,
     skills.length ? `Installed skills: ${skills.join(', ')}` : 'No skill listing available.',
   ].join('\n')
+}
+
+// The chord that focuses the row, as the user's keybindings.json has it: their own
+// Chat binding of abovePrompt:focus first, else the built-in chord unless they rebound it.
+async function readFocusKey($: EngineInterface): Promise<string | null> {
+  const dir = (await $.env.get('CLAUDE_CONFIG_DIR')) ?? `${await $.env.get('HOME')}/.claude`
+  const chat: Record<string, string | null> = {}
+  try {
+    const file = JSON.parse(String(await $.fs.read(`${dir}/keybindings.json`)))
+    for (const block of file.bindings ?? []) {
+      if (block.context !== 'Chat') continue
+      for (const [chord, action] of Object.entries(block.bindings ?? {})) chat[chord.toLowerCase()] = action as string | null
+    }
+  } catch {
+    // No keybindings.json, or one that doesn't parse: Claude Code uses its defaults.
+  }
+  const own = Object.keys(chat).find(chord => chat[chord] === FOCUS_ACTION)
+  if (own) return own
+  return DEFAULT_FOCUS_KEY in chat ? null : DEFAULT_FOCUS_KEY
 }
 
 async function rewrite($: EngineInterface, draft: string): Promise<string> {
@@ -89,12 +113,20 @@ async function send($: EngineInterface) {
 }
 
 export const register: Register = on => {
+  on('session.start', async ($, e, next) => {
+    const chord = await readFocusKey($)
+    await update($, focusKey, () => chord)
+    return next(e)
+  })
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey || e.props.isWorking) return next(e)
 
     const { Box, Button, Text } = $.ui.resolve(e)
     const busy = await read($, isBusy)
     const message = await read($, note)
+    const chord = await read($, focusKey)
+    const hint = [chord, 'e enhance', 's send'].filter(Boolean).join(' · ')
 
     return (
       <Box>
@@ -109,8 +141,8 @@ export const register: Register = on => {
             <Button key="enhance" label="Enhance" hotkey="e" variant="primary" onPress={() => void enhance($)} />
             <Text> </Text>
             <Button key="send" label="Send" hotkey="s" onPress={() => send($)} />
-            {/* ctrl+x tab is the terminal's chord for focusing the row; other surfaces click. */}
-            {e.surface === 'terminal' ? <Text dimColor>  ctrl+x tab · e enhance · s send</Text> : null}
+            {/* The focus chord is a terminal keybinding; other surfaces click. */}
+            {e.surface === 'terminal' ? <Text dimColor>  {hint}</Text> : null}
           </Box>
         )}
         {message ? (

@@ -5,6 +5,7 @@ declare module 'claude-code' {
     'prompt-enhancer': {
       isBusy: boolean
       note: EnhancerNote
+      focusKey: string | null
     }
   }
 }
