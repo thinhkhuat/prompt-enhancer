@@ -118,6 +118,29 @@ test('The row tells a terminal user the keys, and only a terminal user', async (
   await desktop.unmount()
 })
 
+test('The row stays during a running turn, Enhance works there, and the hint says Send queues', async ($, on) => {
+  const fake = engine(on)
+  for (const surface of SURFACES) {
+    reset(fake, 'add a readme')
+    fake.fork = { isAnswered: true, text: '<prompt>Add a README.</prompt>', usage: USAGE }
+    const ui = await $.ui.mount({
+      plugin: 'prompt-enhancer',
+      surface,
+      component: 'AbovePrompt',
+      props: { ...PROPS, isWorking: true },
+    })
+    expect(await ui.find({ key: 'enhance' })).toBeDefined()
+    expect(await ui.find({ key: 'send' })).toBeDefined()
+    if (surface === 'terminal') {
+      expect(await ui.find({ type: 'Text', text: /e enhance · s queue · esc back/ })).toBeDefined()
+    }
+    await ui.press({ key: 'enhance' })
+    expect(fake.text).toBe('Add a README.')
+    expect(fake.submitted).toEqual([])
+    await ui.unmount()
+  }
+})
+
 // Stands in for the user's environment and keybindings.json; null means no file.
 function keybindings(on: On, file: object | null) {
   on('session.start', (_$, e) => ({ cwd: e.cwd }))

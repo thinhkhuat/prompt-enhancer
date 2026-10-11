@@ -120,14 +120,15 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    if (e.props.hasSurvey || e.props.isWorking) return next(e)
+    // The row stays during a running turn: Enhance forks without touching it, and Send queues behind it.
+    if (e.props.hasSurvey) return next(e)
 
     const { Box, Button, Text } = $.ui.resolve(e)
     const busy = await read($, isBusy)
     const message = await read($, note)
     const chord = await read($, focusKey)
     // esc is Claude Code's built-in abovePrompt:leave chord: it returns focus to the prompt box.
-    const hint = [chord, 'e enhance', 's send', 'esc back'].filter(Boolean).join(' · ')
+    const hint = [chord, 'e enhance', e.props.isWorking ? 's queue' : 's send', 'esc back'].filter(Boolean).join(' · ')
 
     return (
       <Box>

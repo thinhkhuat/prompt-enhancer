@@ -23,11 +23,18 @@ Prompt enhancer [ Enhance ] [ Send ]  ctrl+x tab · e enhance · s send · esc b
 
 You can also click **Enhance** or **Send** with the mouse.
 
-- **Enhance** reads the draft, rewrites it, and replaces the draft with the rewrite (`hooks/register.tsx:77-101`). It never sends anything. While the rewrite runs, the row shows `Enhancing…` (`hooks/register.tsx:135-138`).
+- **Enhance** reads the draft, rewrites it, and replaces the draft with the rewrite (`hooks/register.tsx:77-101`). It never sends anything. While the rewrite runs, the row shows `Enhancing…` (`hooks/register.tsx:136-139`).
 - **Send** clears the box and submits the draft as a turn (`hooks/register.tsx:103-113`).
-- **The key hint** shows the focus chord, then `e enhance · s send · esc back` (`hooks/register.tsx:130`). `Esc` is Claude Code's built-in chord for leaving the row. The hint shows on the terminal only (`hooks/register.tsx:146`). On the desktop app and in VS Code, you click the buttons.
-- **The hotkeys** are `e` for Enhance and `s` for Send (`hooks/register.tsx:142`, `hooks/register.tsx:144`). They work while the row has the focus.
+- **The key hint** shows the focus chord, then `e enhance · s send · esc back` (`hooks/register.tsx:131`). `Esc` is Claude Code's built-in chord for leaving the row. While a turn runs, `s send` becomes `s queue`. The hint shows on the terminal only (`hooks/register.tsx:147`). On the desktop app and in VS Code, you click the buttons.
+- **The hotkeys** are `e` for Enhance and `s` for Send (`hooks/register.tsx:143`, `hooks/register.tsx:145`). They work while the row has the focus.
 - **An empty box** makes either button show a toast and do nothing else: "Type a prompt first" for Enhance, "Nothing to send" for Send (`hooks/register.tsx:80-83`, `hooks/register.tsx:105-108`).
+
+## Use the row while a turn runs
+
+The row stays above the prompt while Claude works, so you can prepare the next prompt mid-turn (`hooks/register.tsx:124`).
+
+- **Enhance** forks the session the same way it does when idle. The fork runs as its own request and does not interrupt or change the running turn. It sees the conversation up to the last request the turn sent, so it misses the step still in flight.
+- **Send** queues the draft. The prompt runs as its own turn after the running turn ends. This is not what Enter does: Claude Code delivers a prompt you type and send with Enter into the running turn.
 
 ## Change the focus chord
 
@@ -98,7 +105,7 @@ claude plugin install prompt-enhancer@prompt-enhancer --scope user
 
 ```
   ❯ prompt-enhancer@prompt-enhancer
-    Version: 0.1.2
+    Version: 0.1.3
     Scope: user
     Status: ✔ enabled
 ```
@@ -147,18 +154,19 @@ To run the tests against the engine itself, run:
 claude plugin test .
 ```
 
-All eight tests pass. The tests stand in for the prompt box, the model, the environment, and `keybindings.json`:
+All nine tests pass. The tests stand in for the prompt box, the model, the environment, and `keybindings.json`:
 
 - **Fork path:** Enhance rewrites the draft in place from the forked session, and sends nothing (`tests/prompt-enhancer.test.ts:69`).
 - **Fallback path:** Enhance falls back to a plain completion before the first turn (`tests/prompt-enhancer.test.ts:83`).
 - **Failure:** Enhance leaves the draft alone and shows why when the model fails (`tests/prompt-enhancer.test.ts:97`).
 - **Key hint:** the row shows the keys on `terminal` and not on `desktop` (`tests/prompt-enhancer.test.ts:110`).
-- **Bound chord:** the hint shows the chord the user bound to `abovePrompt:focus` (`tests/prompt-enhancer.test.ts:140`).
-- **No file:** the hint falls back to `ctrl+x tab` without a `keybindings.json` (`tests/prompt-enhancer.test.ts:150`).
-- **Unbound default:** the hint drops the chord when the user unbound `ctrl+x tab` and bound nothing else (`tests/prompt-enhancer.test.ts:155`).
-- **Send:** Send submits the draft as the user's own words and clears the box (`tests/prompt-enhancer.test.ts:162`).
+- **During a turn:** the row stays while `isWorking` is true, Enhance still rewrites the draft, and the hint says `s queue` (`tests/prompt-enhancer.test.ts:121`).
+- **Bound chord:** the hint shows the chord the user bound to `abovePrompt:focus` (`tests/prompt-enhancer.test.ts:163`).
+- **No file:** the hint falls back to `ctrl+x tab` without a `keybindings.json` (`tests/prompt-enhancer.test.ts:173`).
+- **Unbound default:** the hint drops the chord when the user unbound `ctrl+x tab` and bound nothing else (`tests/prompt-enhancer.test.ts:178`).
+- **Send:** Send submits the draft as the user's own words and clears the box (`tests/prompt-enhancer.test.ts:185`).
 
-The first four tests and the Send test run once on the `terminal` surface and once on the `desktop` surface.
+The first five tests and the Send test run once on the `terminal` surface and once on the `desktop` surface.
 
 ### Type-check
 
@@ -188,7 +196,7 @@ claude --plugin-dir .
 
 The installed copy comes from GitHub, so an edit in this folder reaches your sessions only after you push it:
 
-1. Raise `version` in `.claude-plugin/plugin.json`, for example from `0.1.2` to `0.1.3`. `claude plugin update` compares versions, not commits: a pushed commit with the same version stays at `already at the latest version`.
+1. Raise `version` in `.claude-plugin/plugin.json`, for example from `0.1.3` to `0.1.4`. `claude plugin update` compares versions, not commits: a pushed commit with the same version stays at `already at the latest version`.
 2. Commit and push the change to `thinhkhuat/prompt-enhancer`.
 3. Run the two update commands in [Install and uninstall](#install-and-uninstall).
 4. Restart Claude Code.
@@ -196,9 +204,10 @@ The installed copy comes from GitHub, so an edit in this folder reaches your ses
 ## Known limits
 
 - **The transcript labels a sent prompt as coming from the plugin.** Send submits with `asUser: true` (`hooks/register.tsx:112`). The model reads the text as your own words, with no "plugin sent a message" frame. The transcript still shows `› Prompt from the prompt-enhancer plugin` above it, though, and Claude Code does not expand `@file` mentions in a prompt a plugin submits. The mod cannot change either behaviour. To send the prompt as an ordinary typed prompt, press Enter in the box instead of Send.
-- **The row hides while a turn runs.** The hook steps aside while `isWorking` or `hasSurvey` is true (`hooks/register.tsx:123`). The row comes back when the turn ends.
+- **A mid-turn rewrite can miss the latest step.** The fork replays the last request the running turn sent. Output the turn produced after that request is not in the rewrite's context.
+- **The hint can show `ctrl+x tab` for a moment at session start.** The row can draw before the mod has read `keybindings.json`. It shows your chord once the read finishes.
 - **A long draft can push the row off screen.** In live runs on a 50-row terminal, Claude Code stopped drawing the row once a 30-line rewrite filled the prompt box. The mod still returned the row. On a 150-row terminal, the same rewrite left the row visible. The focus chord and the hotkeys still reached the row while it was hidden.
-- **Enhance is not awaited, because a press has 10 seconds.** Claude Code gives each `ui.press` hook a 10-second budget (`HookBudget.ms` is `10_000` in `claude-code.d.ts`). A forked rewrite can take longer: one live run took 13.9 seconds and logged `ui.press prompt-enhancer: exceeded 10000ms budget`. So the button starts `enhance` and returns without waiting for it (`hooks/register.tsx:141-142`). The `isBusy` flag stops a second press from starting a second rewrite while the first one runs (`hooks/register.tsx:78`, `hooks/register.tsx:84`).
+- **Enhance is not awaited, because a press has 10 seconds.** Claude Code gives each `ui.press` hook a 10-second budget (`HookBudget.ms` is `10_000` in `claude-code.d.ts`). A forked rewrite can take longer: one live run took 13.9 seconds and logged `ui.press prompt-enhancer: exceeded 10000ms budget`. So the button starts `enhance` and returns without waiting for it (`hooks/register.tsx:142-143`). The `isBusy` flag stops a second press from starting a second rewrite while the first one runs (`hooks/register.tsx:78`, `hooks/register.tsx:84`).
 - **A rewrite can include your absolute project path.** The rules tell the model to fit the project, and the path is part of the context the model sees (`hooks/register.tsx:21`, `hooks/register.tsx:35`).
 - **The hint reads `keybindings.json` only when a session starts.** An edit to the file shows in the row from the next session on.
 - **A `cmd` chord works only where the terminal sends `cmd` keys.** tmux does not pass them through.
