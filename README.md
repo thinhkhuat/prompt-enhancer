@@ -26,18 +26,24 @@ Prompt enhancer [ Enhance ] [ Send ]  ctrl+x tab · e enhance · s send · esc b
 
 You can also click **Enhance** or **Send** with the mouse.
 
-- **Enhance** reads the draft, rewrites it, and replaces the draft with the rewrite (`hooks/register.tsx:75-99`). It never sends anything. While the rewrite runs, the row shows `Enhancing…` (`hooks/register.tsx:134-137`).
+- **Enhance** reads the draft, rewrites it, and replaces the draft with the rewrite (`hooks/register.tsx:75-99`). It never sends anything. While the rewrite runs, the row shows `Enhancing…` (`hooks/register.tsx:137-140`).
 - **Send** clears the box and submits the draft as a turn (`hooks/register.tsx:101-111`).
-- **The key hint** shows the focus chord, then `e enhance · s send · esc back` (`hooks/register.tsx:129`). `Esc` is Claude Code's built-in chord for leaving the row. While a turn runs, `s send` becomes `s queue`. The hint shows on the terminal only (`hooks/register.tsx:145`). On the desktop app and in VS Code, you click the buttons.
-- **The hotkeys** are `e` for Enhance and `s` for Send (`hooks/register.tsx:141`, `hooks/register.tsx:143`). They work while the row has the focus.
+- **The key hint** shows the focus chord, then `e enhance · s send · esc back` (`hooks/register.tsx:132`). `Esc` is Claude Code's built-in chord for leaving the row. While a turn runs, `s send` becomes `s queue`. The hint shows on the terminal only (`hooks/register.tsx:148`). On the desktop app and in VS Code, you click the buttons.
+- **The hotkeys** are `e` for Enhance and `s` for Send (`hooks/register.tsx:144`, `hooks/register.tsx:146`). They work while the row has the focus.
 - **An empty box** makes either button show a toast and do nothing else: "Type a prompt first" for Enhance, "Nothing to send" for Send (`hooks/register.tsx:78-81`, `hooks/register.tsx:103-106`).
 
 ## Use the row while a turn runs
 
-The row stays above the prompt while Claude works, so you can prepare the next prompt mid-turn (`hooks/register.tsx:122`).
+The row stays above the prompt while Claude works, so you can prepare the next prompt mid-turn (`hooks/register.tsx:123`).
 
 - **Enhance** forks the session the same way it does when idle. The fork runs as its own request and does not interrupt or change the running turn. It sees the conversation up to the last request the turn sent, so it misses the step still in flight.
 - **Send** queues the draft. The prompt runs as its own turn after the running turn ends. This is not what Enter does: Claude Code delivers a prompt you type and send with Enter into the running turn.
+
+## Use the row beside other bands
+
+The row shares the band above the prompt with other mods. It draws its own row and keeps the drawing beneath it: another mod's band, or the engine's own (`hooks/register.tsx:126`, `hooks/register.tsx:160-165`). Two mods that both do this show both rows. concierge-enhancer's band (a **Rank now** button and the skill menu) is one such mod; its hotkeys are `r` and `1` to `5`, so they do not collide with `e` and `s` here.
+
+While a survey holds the band, the row yields and draws nothing (`hooks/register.tsx:123`). A mod outside this one that draws without calling the rest of the chain replaces this row; a mod inside it that does the same still shows beneath it.
 
 ## Change the focus chord
 
@@ -107,7 +113,7 @@ claude plugin install prompt-enhancer@prompt-enhancer --scope user
 
 ```
   ❯ prompt-enhancer@prompt-enhancer
-    Version: 0.1.3
+    Version: 0.2.1
     Scope: user
     Status: ✔ enabled
 ```
@@ -135,9 +141,10 @@ claude plugin marketplace remove prompt-enhancer
 | `.claude-plugin/plugin.json` | The manifest: name, version, description, and the path to the state contract. |
 | `.claude-plugin/marketplace.json` | Makes this folder a one-mod marketplace for GitHub installs. |
 | `hooks/hooks.json` | Names the hooks module, `./register.tsx`. |
-| `hooks/register.tsx` | The whole mod: a `session.start` hook that reads the focus chord, a `ui.render` hook on `AbovePrompt`, and the `enhance`, `send` and `rewrite` functions. |
+| `hooks/register.tsx` | The whole mod: a `session.start` hook that reads the focus chord, a `ui.render` hook on `AbovePrompt` that draws the row and the drawing beneath it, and the `enhance`, `send` and `rewrite` functions. |
 | `types/index.d.ts` | The state contract: `isBusy`, `note`, and `focusKey`, kept in `$.state` under `prompt-enhancer`. |
-| `tests/prompt-enhancer.test.ts` | Eight tests run by `claude plugin test`. |
+| `tests/prompt-enhancer.test.ts` | Nine tests: the rewrite, the hint, Send. |
+| `tests/prompt-enhancer-compose.test.tsx` | Six tests: the row beside the engine's drawing and beside other mods' bands, and yielding to a survey. |
 | `tsconfig.json` | Points `tsc` at the API types that Claude Code writes into `.claude-plugin/types/`. |
 
 ### Validate and test
@@ -156,17 +163,18 @@ To run the tests against the engine itself, run:
 claude plugin test .
 ```
 
-All nine tests pass. The tests stand in for the prompt box, the model, the environment, and `keybindings.json`:
+All fifteen tests pass. The tests stand in for the prompt box, the model, the environment, and `keybindings.json`:
 
-- **Fork path:** Enhance rewrites the draft in place from the forked session, and sends nothing (`tests/prompt-enhancer.test.ts:69`).
-- **Fallback path:** Enhance falls back to a plain completion before the first turn (`tests/prompt-enhancer.test.ts:83`).
-- **Failure:** Enhance leaves the draft alone and shows why when the model fails (`tests/prompt-enhancer.test.ts:97`).
-- **Key hint:** the row shows the keys on `terminal` and not on `desktop` (`tests/prompt-enhancer.test.ts:110`).
-- **During a turn:** the row stays while `isWorking` is true, Enhance still rewrites the draft, and the hint says `s queue` (`tests/prompt-enhancer.test.ts:121`).
-- **Bound chord:** the hint shows the chord the user bound to `abovePrompt:focus` (`tests/prompt-enhancer.test.ts:163`).
-- **No file:** the hint falls back to `ctrl+x tab` without a `keybindings.json` (`tests/prompt-enhancer.test.ts:173`).
-- **Unbound default:** the hint drops the chord when the user unbound `ctrl+x tab` and bound nothing else (`tests/prompt-enhancer.test.ts:178`).
-- **Send:** Send submits the draft as the user's own words and clears the box (`tests/prompt-enhancer.test.ts:185`).
+- **Fork path:** Enhance rewrites the draft in place from the forked session, and sends nothing (`tests/prompt-enhancer.test.ts:71`).
+- **Fallback path:** Enhance falls back to a plain completion before the first turn (`tests/prompt-enhancer.test.ts:85`).
+- **Failure:** Enhance leaves the draft alone and shows why when the model fails (`tests/prompt-enhancer.test.ts:104`).
+- **Key hint:** the row shows the keys on `terminal` and not on `desktop` (`tests/prompt-enhancer.test.ts:117`).
+- **During a turn:** the row stays while `isWorking` is true, Enhance still rewrites the draft, and the hint says `s queue` (`tests/prompt-enhancer.test.ts:128`).
+- **Bound chord:** the hint shows the chord the user bound to `abovePrompt:focus` (`tests/prompt-enhancer.test.ts:171`).
+- **No file:** the hint falls back to `ctrl+x tab` without a `keybindings.json` (`tests/prompt-enhancer.test.ts:181`).
+- **Unbound default:** the hint drops the chord when the user unbound `ctrl+x tab` and bound nothing else (`tests/prompt-enhancer.test.ts:186`).
+- **Send:** Send submits the draft as the user's own words and clears the box (`tests/prompt-enhancer.test.ts:193`).
+- **Composition:** the row is drawn with the engine's drawing beneath it, beside a composing band whether that band sits outside or inside the mod, above a band that draws alone, and it yields to a survey (`tests/prompt-enhancer-compose.test.tsx:58-96`).
 
 The first five tests and the Send test run once on the `terminal` surface and once on the `desktop` surface.
 
@@ -209,7 +217,7 @@ The installed copy comes from GitHub, so an edit in this folder reaches your ses
 - **A mid-turn rewrite can miss the latest step.** The fork replays the last request the running turn sent. Output the turn produced after that request is not in the rewrite's context.
 - **The hint can show `ctrl+x tab` for a moment at session start.** The row can draw before the mod has read `keybindings.json`. It shows your chord once the read finishes.
 - **A long draft can push the row off screen.** In live runs on a 50-row terminal, Claude Code stopped drawing the row once a 30-line rewrite filled the prompt box. The mod still returned the row. On a 150-row terminal, the same rewrite left the row visible. The focus chord and the hotkeys still reached the row while it was hidden.
-- **Enhance is not awaited, because a press has 10 seconds.** Claude Code gives each `ui.press` hook a 10-second budget (`HookBudget.ms` is `10_000` in `claude-code.d.ts`). A forked rewrite can take longer: one live run took 13.9 seconds and logged `ui.press prompt-enhancer: exceeded 10000ms budget`. So the button starts `enhance` and returns without waiting for it (`hooks/register.tsx:140-141`). The `isBusy` flag stops a second press from starting a second rewrite while the first one runs (`hooks/register.tsx:76`, `hooks/register.tsx:82`).
+- **Enhance is not awaited, because a press has 10 seconds.** Claude Code gives each `ui.press` hook a 10-second budget (`HookBudget.ms` is `10_000` in `claude-code.d.ts`). A forked rewrite can take longer: one live run took 13.9 seconds and logged `ui.press prompt-enhancer: exceeded 10000ms budget`. So the button starts `enhance` and returns without waiting for it (`hooks/register.tsx:143-144`). The `isBusy` flag stops a second press from starting a second rewrite while the first one runs (`hooks/register.tsx:76`, `hooks/register.tsx:82`).
 - **A rewrite can include your absolute project path.** The rules tell the model to fit the project, and the path is part of the context the model sees (`hooks/register.tsx:23`, `hooks/register.tsx:35`).
 - **The hint reads `keybindings.json` only when a session starts.** An edit to the file shows in the row from the next session on.
 - **A `cmd` chord works only where the terminal sends `cmd` keys.** tmux does not pass them through.

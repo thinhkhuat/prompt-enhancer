@@ -32,6 +32,8 @@ function engine(on: On): Fake {
     fork: { isAnswered: false, reason: 'nothing-to-fork' },
     complete: { isAnswered: false, reason: 'empty-reply', usage: USAGE },
   }
+  // What the engine draws in the band beneath the plugins: its own tree (an `engine` node).
+  on('ui.render', () => ({ type: 'engine' as const, ref: 0 }))
   on('prompt.read', () => ({ value: { text: fake.text, cursor: fake.text.length } }))
   on('prompt.fill', (_$, e) => {
     fake.text = e.text
@@ -148,6 +150,7 @@ test('The row stays during a running turn, Enhance works there, and the hint say
 
 // Stands in for the user's environment and keybindings.json; null means no file.
 function keybindings(on: On, file: object | null) {
+  on('ui.render', () => ({ type: 'engine' as const, ref: 0 }))
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('env.get', (_$, e) => ({ value: e.name === 'HOME' ? '/home/me' : undefined }))
   on('fs.read', (_$, e) =>

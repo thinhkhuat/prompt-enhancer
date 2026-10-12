@@ -1,6 +1,6 @@
 {
   "name": "prompt-enhancer",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A band above the prompt that rewrites your rough draft in place: your intent and your own words, the kind of work, and the finished result, as short as the request.",
   "types": "./types/index.d.ts"
 }

@@ -119,8 +119,11 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     // The row stays during a running turn: Enhance forks without touching it, and Send queues behind it.
+    // A survey holds the band: yield to it.
     if (e.props.hasSurvey) return next(e)
 
+    // Compose: this row, and beneath it whatever the rest of the chain drew (another plugin's band, the engine's).
+    const below = await next(e)
     const { Box, Button, Text } = $.ui.resolve(e)
     const busy = await read($, isBusy)
     const message = await read($, note)
@@ -128,7 +131,7 @@ export const register: Register = on => {
     // esc is Claude Code's built-in abovePrompt:leave chord: it returns focus to the prompt box.
     const hint = [chord, 'e enhance', e.props.isWorking ? 's queue' : 's send', 'esc back'].filter(Boolean).join(' · ')
 
-    return (
+    const row = (
       <Box>
         <Text dimColor>Prompt enhancer </Text>
         {busy ? (
@@ -151,6 +154,13 @@ export const register: Register = on => {
             {message}
           </Text>
         ) : null}
+      </Box>
+    )
+
+    return (
+      <Box flexDirection="column">
+        {row}
+        {below}
       </Box>
     )
   })
