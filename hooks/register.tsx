@@ -11,30 +11,28 @@ const focusKey = atom({ plugin: 'prompt-enhancer', key: 'focusKey' } as const, D
 
 const FALLBACK_MODEL = 'sonnet'
 
-const RULES = `Rewrite the rough prompt below into a strong prompt for a coding agent working in this project.
+// Ported from skill-concierge's concierge-enhancer v0.1, whose blind A/B on 20 real prompts showed
+// that naming skills and asking the author questions made the downstream skill menus worse.
+const RULES = `Goal: rewrite the rough prompt below into the message the author would send with one more minute: the same request, stated so a coding agent in this project can act on it from start to finish.
 
-The rewrite must:
-1. Keep the author's intent, scope and language. Add no requirements they did not ask for or clearly imply.
-2. Name the installed skills that fit the task, by their exact names from the skill listing you can see (for example "Use the X skill for ..."). Name only skills that exist in that listing; never invent one. If none fit, say nothing about skills.
-3. List the big decisions the agent should ask the author about before starting, instead of deciding alone. Only real forks that change the result; skip anything the agent can look up.
-4. Describe what the finished result should look like: the deliverable and how to tell it is done.
-5. Fit this project: use what you know of its folder, files, conventions and the conversation so far. Do not invent paths or facts.
+Success means the rewrite:
+1. Keeps the author's intent, scope and language; every requirement comes from what they asked for or clearly implied.
+2. Copies the author's own terms verbatim: tools, files, procedures, people, and any coined or misspelled term ("chisle" stays "chisle").
+3. States the kind of work and its domain: what is built, fixed, reviewed, researched or written, and the tools, file types, services and artifacts involved.
+4. Describes the finished result: the deliverable and how to tell it is done.
+5. Fits this project, using only the paths and facts its folder, files, conventions and the conversation show.
+6. Leaves skill choice to the agent: it names skills, plugins, agents or slash commands only where the author did.
+7. Matches its length to the request: a one-line ask stays a few lines, and every added line carries a fact the agent needs.
 
-Write it in the author's voice, as the message they will send. Be concise: short sections or bullets, no filler.
-Reply with the rewritten prompt only, wrapped in <prompt></prompt>. Nothing outside the tags.`
+Write it in the author's voice, as the message they will send, in plain sentences or short bullets.
+Reply with the rewritten prompt only, wrapped in <prompt></prompt>. Stop after </prompt>.`
 
 const extract = (reply: string) => {
   return (reply.match(/<prompt>([\s\S]*?)<\/prompt>/)?.[1] ?? reply).trim()
 }
 
 async function fallbackContext($: EngineInterface): Promise<string> {
-  const cwd = await $.session.cwd()
-  const usage = await $.session.usage({ breakdown: 'summary' })
-  const skills = usage.context.breakdown?.skills?.skillFrontmatter.map(s => s.name) ?? []
-  return [
-    `Project folder: ${cwd}`,
-    skills.length ? `Installed skills: ${skills.join(', ')}` : 'No skill listing available.',
-  ].join('\n')
+  return `Project folder: ${await $.session.cwd()}`
 }
 
 // The chord that focuses the row, as the user's keybindings.json has it: their own

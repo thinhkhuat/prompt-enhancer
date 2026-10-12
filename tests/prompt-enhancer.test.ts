@@ -89,7 +89,12 @@ test('Enhance falls back to a plain completion before the first turn', async ($,
     const ui = await mount($, surface)
     await ui.press({ key: 'enhance' })
     expect(fake.text).toBe('Fix the login bug.')
-    expect(fake.asks).toContain('Project folder: /work/app\nInstalled skills: ui-styling, debug')
+    expect(fake.asks).toContain('Project folder: /work/app')
+    const sent = fake.asks.join('\n')
+    expect(sent).not.toContain('Installed skills')
+    expect(sent).toContain('"chisle" stays "chisle"')
+    expect(sent).toContain('names skills, plugins, agents or slash commands only where the author did')
+    expect(sent).not.toContain('ask the author')
     await ui.unmount()
   }
 })

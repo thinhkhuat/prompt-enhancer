@@ -1,6 +1,6 @@
 {
   "name": "prompt-enhancer",
-  "version": "0.1.3",
-  "description": "A band above the prompt that rewrites your rough draft in place, naming fitting skills, open decisions and the finished result.",
+  "version": "0.2.0",
+  "description": "A band above the prompt that rewrites your rough draft in place: your intent and your own words, the kind of work, and the finished result, as short as the request.",
   "types": "./types/index.d.ts"
 }
